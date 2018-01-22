@@ -1,0 +1,131 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - WebApplication1</title>
+
+    
+        <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.css" />
+        <link rel="stylesheet" href="~/css/site.css" />
+  
+    <script src="lib/signalr.js"></script>
+    <script>
+
+    var transportType = signalR.TransportType.WebSockets;
+    //can also be ServerSentEvents or LongPolling
+    var logger = new signalR.ConsoleLogger(signalR.LogLevel.Information);
+    var chatHub = new signalR.HttpConnection(`http://${document.location.host}/whatsapp`, { transport: transportType, logger: logger });
+    var chatConnection = new signalR.HubConnection(chatHub, logger);
+
+    chatConnection.onClosed = e => {
+        console.log('connection closed');
+    };
+
+    chatConnection.on('Authenticating', (message) => {
+         $("#qrCode").show();
+         $('#qrCode').attr("src", message);
+        $("#chats").hide();
+
+    });
+       chatConnection.on('Authenticated', () => {
+         $("#qrCode").hide();
+        $("#chats").show();
+
+    });
+    chatConnection.on('UI', (ui) => {
+
+        $("#ui").attr("src", "whatsapp/ui?" + new Date().getTime());
+
+       });
+    chatConnection.on('Started', () => {
+       
+        $("#Status").html("Running");
+
+    });
+    chatConnection.on('Stopped', () => {
+
+        $("#Status").html("Stopped");
+
+    });
+    chatConnection.on('MessagesReceived', (message) => {
+
+        for (var i = 0; i < message.messages.length; i++) {
+            $("#chats").append("<li>" + message.messages[i].contact.name + " (" + message.messages[i].contact.id + "): " + message.messages[i].message + "</li>");
+        }
+
+    });
+
+    chatConnection.start().catch(err => {
+        console.log('connection error');
+    });
+
+    function send(message) {
+        chatConnection.invoke('Send', message);
+    }
+
+    </script>
+    <style>
+        .whatsapp {
+            position: absolute;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            width: 64px;
+            height: 64px;
+            top: 50%;
+            z-index: 2;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container body-content">
+      
+        <p></p>
+        <p id="Status"></p>
+        <div class="row">
+            <div class="col-lg-12">
+                <input placeholder="number" id="number" type="text" />
+                <input placeholder="message" id="message" type="text" />
+                <button id="send-button">Send</button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-6">
+                <div style="width:240px;height:240px;">
+                   
+                    <ul id="chats"></ul>
+
+                    <img id="qrCode" />
+                </div>
+            </div>
+            <div class="col-lg-6"><img id="ui" /></div>
+
+
+
+        </div>
+
+    </div>
+
+        <script src="~/lib/jquery/dist/jquery.js"></script>
+        <script src="~/lib/bootstrap/dist/js/bootstrap.js"></script>
+        <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        $(function () {
+            $("#send-button").click(function () {
+                var number = $("#number").val();
+                var message = $("#message").val();
+                $.post("/whatsapp/send?nr=" + number + "&message=" + message, function (data) {
+                    alert("Done!");
+                });
+                
+            });
+
+        })
+    </script>
+
+</body>
+</html>
